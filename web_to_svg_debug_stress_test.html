@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Web to SVG Debug Stress Test</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: rgba(255, 255, 255, 0.08);
+      --panel-strong: rgba(255, 255, 255, 0.14);
+      --line: rgba(255, 255, 255, 0.18);
+      --text: #f7f4ea;
+      --muted: #aeb7d6;
+      --cyan: #58e6ff;
+      --violet: #a78bfa;
+      --pink: #ff4fb8;
+      --orange: #ffb86b;
+      --green: #49f2a6;
+      --danger: #ff5d73;
+      --shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+      --radius-xl: 34px;
+      --radius-md: 18px;
+      --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      background: #050713;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font);
+      color: var(--text);
+      background:
+        radial-gradient(circle at 16% 12%, rgba(88, 230, 255, 0.32), transparent 26%),
+        radial-gradient(circle at 82% 18%, rgba(255, 79, 184, 0.28), transparent 24%),
+        radial-gradient(circle at 52% 88%, rgba(167, 139, 250, 0.28), transparent 31%),
+        linear-gradient(135deg, #050713 0%, #0b1020 45%, #111832 100%);
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.18;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.09) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.09) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: radial-gradient(circle at center, black, transparent 78%);
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.12;
+      mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+    }
+
+    .page {
+      width: min(1440px, calc(100vw - 48px));
+      margin: 0 auto;
+      padding: 48px 0 72px;
+      position: relative;
+    }
+
+    .debug-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(18px) saturate(1.25);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .debug-label::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 6px rgba(73, 242, 166, 0.12), 0 0 24px rgba(73, 242, 166, 0.9);
+    }
+
+    .hero {
+      position: relative;
+      margin-top: 22px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.14), rgba(255,255,255,0.04)),
+        linear-gradient(140deg, rgba(88, 230, 255, 0.09), transparent 38%, rgba(255, 79, 184, 0.12));
+      overflow: hidden;
+      box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,0.18);
+      min-height: 430px;
+      padding: 42px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(430px, 0.95fr);
+      gap: 34px;
+      isolation: isolate;
+    }
+
+    .hero::before {
+      content: "WEB → SVG";
+      position: absolute;
+      right: -26px;
+      bottom: -32px;
+      z-index: -1;
+      font-weight: 900;
+      font-size: clamp(82px, 12vw, 170px);
+      letter-spacing: -0.09em;
+      color: transparent;
+      -webkit-text-stroke: 1px rgba(255,255,255,0.12);
+      transform: rotate(-6deg);
+      opacity: 0.75;
+    }
+
+    .hero-copy {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 342px;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 760px;
+      font-size: clamp(54px, 6vw, 92px);
+      line-height: 0.88;
+      letter-spacing: -0.08em;
+      font-weight: 900;
+    }
+
+    .gradient-text {
+      color: transparent;
+      background: linear-gradient(90deg, #fff6cc, var(--cyan), var(--pink));
+      -webkit-background-clip: text;
+      background-clip: text;
+      filter: drop-shadow(0 10px 22px rgba(88, 230, 255, 0.18));
+    }
+
+    .intro {
+      margin: 26px 0 0;
+      max-width: 680px;
+      font-size: 18px;
+      line-height: 1.65;
+      color: var(--muted);
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 32px;
+    }
+
+    .button {
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      padding: 13px 18px;
+      color: #06101d;
+      background: linear-gradient(135deg, var(--cyan), var(--green));
+      font-weight: 800;
+      box-shadow: 0 18px 40px rgba(88, 230, 255, 0.24), inset 0 1px 0 rgba(255,255,255,0.48);
+    }
+
+    .button.secondary {
+      color: var(--text);
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(18px);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+
+    .spec-list {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 26px;
+    }
+
+    .spec {
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+    }
+
+    .spec strong {
+      display: block;
+      font-size: 22px;
+      letter-spacing: -0.04em;
+    }
+
+    .spec span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .visual-lab {
+      position: relative;
+      min-height: 350px;
+      border-radius: 28px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background:
+        radial-gradient(circle at 50% 40%, rgba(255,255,255,0.18), transparent 30%),
+        linear-gradient(145deg, rgba(255,255,255,0.13), rgba(255,255,255,0.04));
+      overflow: hidden;
+      perspective: 1000px;
+    }
+
+    .orb {
+      position: absolute;
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      left: 48px;
+      top: 48px;
+      background:
+        radial-gradient(circle at 32% 28%, #ffffff, transparent 10%),
+        radial-gradient(circle at 40% 35%, var(--cyan), transparent 22%),
+        radial-gradient(circle at 72% 70%, var(--pink), transparent 34%),
+        linear-gradient(135deg, var(--violet), #18224a);
+      filter: saturate(1.35) contrast(1.08);
+      box-shadow: 0 38px 70px rgba(0,0,0,0.35), inset -24px -30px 50px rgba(0,0,0,0.38), inset 18px 18px 38px rgba(255,255,255,0.36);
+    }
+
+    .glass-card {
+      position: absolute;
+      right: 42px;
+      top: 72px;
+      width: 270px;
+      padding: 22px;
+      border-radius: 26px;
+      border: 1px solid rgba(255,255,255,0.22);
+      background: rgba(255,255,255,0.11);
+      backdrop-filter: blur(22px) saturate(1.45);
+      transform: rotateY(-20deg) rotateX(8deg) rotateZ(3deg);
+      box-shadow: 0 34px 70px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.24);
+    }
+
+    .glass-card h2 {
+      margin: 0 0 10px;
+      font-size: 22px;
+      letter-spacing: -0.04em;
+    }
+
+    .glass-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 14px;
+    }
+
+    .ribbon {
+      position: absolute;
+      left: -40px;
+      bottom: 50px;
+      width: 118%;
+      height: 72px;
+      display: flex;
+      align-items: center;
+      white-space: nowrap;
+      overflow: hidden;
+      transform: rotate(-7deg);
+      background: repeating-linear-gradient(90deg, rgba(255,255,255,0.98) 0 18px, rgba(255,184,107,0.98) 18px 36px, rgba(255,79,184,0.98) 36px 54px);
+      color: #070b18;
+      font-weight: 950;
+      font-size: 22px;
+      letter-spacing: -0.04em;
+      mix-blend-mode: screen;
+      opacity: 0.82;
+    }
+
+    .ribbon span {
+      padding-left: 26px;
+      text-shadow: 0 1px 0 rgba(255,255,255,0.4);
+    }
+
+    .svg-float {
+      position: absolute;
+      right: 72px;
+      bottom: 42px;
+      width: 150px;
+      height: 150px;
+      filter: drop-shadow(0 30px 30px rgba(0,0,0,0.35));
+      transform: rotate(-11deg);
+    }
+
+    .test-grid {
+      margin-top: 28px;
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 18px;
+    }
+
+    .panel {
+      position: relative;
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      background: linear-gradient(145deg, rgba(255,255,255,0.11), rgba(255,255,255,0.045));
+      box-shadow: 0 20px 60px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.12);
+      overflow: hidden;
+      min-height: 230px;
+      padding: 22px;
+    }
+
+    .panel h3 {
+      margin: 0 0 12px;
+      font-size: 18px;
+      letter-spacing: -0.03em;
+    }
+
+    .panel p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .span-3 { grid-column: span 3; }
+    .span-4 { grid-column: span 4; }
+    .span-5 { grid-column: span 5; }
+    .span-6 { grid-column: span 6; }
+    .span-7 { grid-column: span 7; }
+    .span-8 { grid-column: span 8; }
+    .span-12 { grid-column: span 12; }
+
+    .gradient-box {
+      height: 132px;
+      border-radius: 22px;
+      margin-top: 18px;
+      background:
+        conic-gradient(from 35deg at 50% 50%, var(--cyan), var(--violet), var(--pink), var(--orange), var(--green), var(--cyan));
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25), 0 18px 46px rgba(255,79,184,0.2);
+    }
+
+    .blend-stack {
+      height: 150px;
+      position: relative;
+      margin-top: 16px;
+      background: #10182e;
+      border-radius: 22px;
+      overflow: hidden;
+    }
+
+    .blend-stack i {
+      position: absolute;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      mix-blend-mode: screen;
+    }
+
+    .blend-stack i:nth-child(1) { background: var(--cyan); left: 34px; top: 18px; }
+    .blend-stack i:nth-child(2) { background: var(--pink); left: 92px; top: 22px; }
+    .blend-stack i:nth-child(3) { background: var(--orange); left: 64px; top: 70px; }
+
+    .clip-shape {
+      height: 152px;
+      margin-top: 16px;
+      background: linear-gradient(135deg, var(--green), var(--cyan), var(--violet));
+      clip-path: polygon(8% 12%, 78% 0, 100% 42%, 72% 100%, 18% 82%, 0 46%);
+      filter: drop-shadow(0 18px 18px rgba(73,242,166,0.24));
+    }
+
+    .masked-image {
+      height: 180px;
+      margin-top: 16px;
+      border-radius: 22px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.25), transparent),
+        url("data:image/svg+xml,%3Csvg width='900' height='420' viewBox='0 0 900 420' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop stop-color='%2358e6ff'/%3E%3Cstop offset='.55' stop-color='%23a78bfa'/%3E%3Cstop offset='1' stop-color='%23ff4fb8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='900' height='420' fill='%2310182e'/%3E%3Ccircle cx='160' cy='130' r='120' fill='url(%23g)' opacity='.9'/%3E%3Ccircle cx='590' cy='230' r='190' fill='%23ffb86b' opacity='.8'/%3E%3Cpath d='M0 320 C220 180 380 470 900 190 L900 420 L0 420Z' fill='%2349f2a6' opacity='.75'/%3E%3C/svg%3E");
+      background-size: cover;
+      mask-image: radial-gradient(circle at 45% 45%, black 0 38%, transparent 70%);
+      -webkit-mask-image: radial-gradient(circle at 45% 45%, black 0 38%, transparent 70%);
+    }
+
+    .filter-demo {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .filter-demo div {
+      height: 102px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, var(--cyan), var(--pink));
+    }
+
+    .filter-demo div:nth-child(1) { filter: blur(3px); }
+    .filter-demo div:nth-child(2) { filter: grayscale(1) contrast(1.8); }
+    .filter-demo div:nth-child(3) { filter: hue-rotate(90deg) saturate(1.9); }
+
+    .text-specimen {
+      margin-top: 20px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .text-specimen .big {
+      font-size: clamp(34px, 4vw, 58px);
+      line-height: 0.9;
+      letter-spacing: -0.09em;
+      font-weight: 950;
+      text-wrap: balance;
+    }
+
+    .text-specimen .stroke {
+      color: transparent;
+      -webkit-text-stroke: 1px rgba(255,255,255,0.82);
+    }
+
+    .text-specimen .vertical {
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      max-height: 190px;
+      color: var(--orange);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .nested-grid {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-auto-rows: 56px;
+      gap: 10px;
+    }
+
+    .nested-grid div {
+      border-radius: 16px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .nested-grid div:nth-child(2) {
+      grid-column: span 2;
+      grid-row: span 2;
+      background: linear-gradient(135deg, rgba(88,230,255,0.38), rgba(255,79,184,0.18));
+    }
+
+    .nested-grid div:nth-child(5) {
+      grid-column: span 2;
+    }
+
+    .shadow-layers {
+      margin: 30px auto 0;
+      width: 140px;
+      height: 140px;
+      border-radius: 30px;
+      background: linear-gradient(135deg, #ffffff, #9eeeff 32%, #ffb3e0 100%);
+      box-shadow:
+        0 0 0 10px rgba(255,255,255,0.06),
+        0 0 0 20px rgba(88,230,255,0.05),
+        0 30px 70px rgba(0,0,0,0.42),
+        inset 0 2px 0 rgba(255,255,255,0.75),
+        inset 0 -30px 50px rgba(0,0,0,0.22);
+      transform: rotate(12deg) skew(-4deg, 2deg);
+    }
+
+    .absolute-chaos {
+      height: 230px;
+      margin-top: 18px;
+      position: relative;
+      border-radius: 22px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.06);
+    }
+
+    .absolute-chaos b,
+    .absolute-chaos i,
+    .absolute-chaos em {
+      position: absolute;
+      display: block;
+    }
+
+    .absolute-chaos b {
+      width: 150px;
+      height: 80px;
+      left: 34px;
+      top: 32px;
+      border-radius: 999px;
+      background: var(--green);
+      transform: rotate(-22deg);
+    }
+
+    .absolute-chaos i {
+      width: 122px;
+      height: 122px;
+      right: 52px;
+      top: 26px;
+      border-radius: 36px;
+      background: var(--pink);
+      transform: rotate(28deg);
+      opacity: 0.82;
+    }
+
+    .absolute-chaos em {
+      width: 240px;
+      height: 4px;
+      left: 54px;
+      bottom: 62px;
+      background: white;
+      box-shadow: 0 18px 0 var(--cyan), 0 36px 0 var(--orange);
+      transform: rotate(-11deg);
+    }
+
+    .table-test {
+      width: 100%;
+      margin-top: 18px;
+      border-collapse: separate;
+      border-spacing: 0;
+      overflow: hidden;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.15);
+      font-size: 13px;
+    }
+
+    .table-test th,
+    .table-test td {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      text-align: left;
+    }
+
+    .table-test th {
+      color: #07101d;
+      background: linear-gradient(90deg, var(--cyan), var(--green));
+    }
+
+    .table-test td {
+      color: var(--muted);
+      background: rgba(255,255,255,0.045);
+    }
+
+    .table-test tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .pseudo-test {
+      position: relative;
+      margin-top: 22px;
+      padding: 22px;
+      min-height: 128px;
+      border-radius: 22px;
+      background: rgba(255,255,255,0.07);
+      border: 1px dashed rgba(255,255,255,0.28);
+    }
+
+    .pseudo-test::before,
+    .pseudo-test::after {
+      position: absolute;
+      font-weight: 950;
+      font-size: 42px;
+      line-height: 1;
+      opacity: 0.42;
+    }
+
+    .pseudo-test::before {
+      content: "::before";
+      left: 18px;
+      bottom: 12px;
+      color: var(--cyan);
+    }
+
+    .pseudo-test::after {
+      content: "::after";
+      right: 18px;
+      top: 12px;
+      color: var(--pink);
+      transform: rotate(8deg);
+    }
+
+    .sticky-bar {
+      position: sticky;
+      top: 16px;
+      z-index: 5;
+      margin-top: 28px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(7, 11, 24, 0.66);
+      backdrop-filter: blur(20px);
+      padding: 10px;
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+    }
+
+    .sticky-bar a {
+      color: var(--muted);
+      text-decoration: none;
+      padding: 10px 12px;
+      border-radius: 999px;
+      text-align: center;
+      font-size: 12px;
+      border: 1px solid transparent;
+    }
+
+    .sticky-bar a:hover {
+      color: var(--text);
+      border-color: rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.08);
+    }
+
+    .print-area {
+      margin-top: 28px;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 30px;
+      background: #f4efe3;
+      color: #17140f;
+      padding: 32px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .print-area::before {
+      content: "CMYK-ish / SVG EXPORT";
+      position: absolute;
+      right: -8px;
+      top: 24px;
+      font-size: 72px;
+      line-height: 0.8;
+      font-weight: 950;
+      letter-spacing: -0.08em;
+      color: rgba(23,20,15,0.055);
+      transform: rotate(-3deg);
+    }
+
+    .print-area h2 {
+      margin: 0;
+      font-size: 54px;
+      line-height: 0.88;
+      letter-spacing: -0.07em;
+    }
+
+    .print-area p {
+      max-width: 700px;
+      color: #5c5549;
+      line-height: 1.6;
+    }
+
+    .columns {
+      column-count: 3;
+      column-gap: 28px;
+      column-rule: 1px solid rgba(23,20,15,0.16);
+      margin-top: 20px;
+      font-size: 14px;
+      line-height: 1.55;
+      color: #40392f;
+    }
+
+    .columns strong {
+      color: #17140f;
+    }
+
+    .form-test {
+      margin-top: 20px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .form-test input,
+    .form-test select,
+    .form-test button {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 16px;
+      padding: 13px 14px;
+      color: var(--text);
+      background: rgba(255,255,255,0.06);
+      font: inherit;
+    }
+
+    .form-test input::placeholder {
+      color: rgba(247,244,234,0.46);
+    }
+
+    .form-test button {
+      color: #06101d;
+      background: linear-gradient(135deg, var(--orange), var(--pink));
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .debug-footer {
+      margin-top: 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    @media (max-width: 1040px) {
+      .hero {
+        grid-template-columns: 1fr;
+      }
+
+      .visual-lab {
+        min-height: 420px;
+      }
+
+      .span-3,
+      .span-4,
+      .span-5,
+      .span-6,
+      .span-7,
+      .span-8 {
+        grid-column: span 6;
+      }
+
+      .sticky-bar {
+        grid-template-columns: repeat(3, 1fr);
+        border-radius: 24px;
+      }
+
+      .form-test {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 720px) {
+      .page {
+        width: min(100vw - 28px, 640px);
+        padding-top: 24px;
+      }
+
+      .hero {
+        padding: 24px;
+        border-radius: 26px;
+      }
+
+      .spec-list,
+      .filter-demo,
+      .form-test {
+        grid-template-columns: 1fr;
+      }
+
+      .span-3,
+      .span-4,
+      .span-5,
+      .span-6,
+      .span-7,
+      .span-8,
+      .span-12 {
+        grid-column: span 12;
+      }
+
+      .columns {
+        column-count: 1;
+      }
+
+      .sticky-bar {
+        position: static;
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="debug-label">Conversion stress test / web renderer → SVG output</div>
+
+    <section class="hero" id="overview">
+      <div class="hero-copy">
+        <div>
+          <h1>Debug visual para <span class="gradient-text">web to SVG</span></h1>
+          <p class="intro">
+            Este archivo está diseñado para detectar pérdidas de fidelidad al convertir HTML/CSS a SVG: transparencias, filtros, máscaras, pseudo-elementos, gradients, transforms 3D, tablas, formularios, SVG inline, layout responsivo y capas con blending.
+          </p>
+          <div class="hero-actions">
+            <button class="button">Primary button</button>
+            <button class="button secondary">Glass secondary</button>
+          </div>
+        </div>
+
+        <div class="spec-list">
+          <div class="spec"><strong>01</strong><span>CSS filters</span></div>
+          <div class="spec"><strong>02</strong><span>Clip / mask</span></div>
+          <div class="spec"><strong>03</strong><span>Typography</span></div>
+        </div>
+      </div>
+
+      <div class="visual-lab">
+        <div class="orb"></div>
+        <div class="glass-card">
+          <h2>Glass card</h2>
+          <p>Tests backdrop-filter, transparency, transformed layers and nested text rendering.</p>
+        </div>
+        <div class="ribbon"><span>repeating-linear-gradient · mix-blend-mode · rotated layer · </span></div>
+        <svg class="svg-float" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="inline svg debug icon">
+          <defs>
+            <linearGradient id="paintA" x1="16" y1="18" x2="145" y2="148" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#58E6FF"/>
+              <stop offset="0.52" stop-color="#A78BFA"/>
+              <stop offset="1" stop-color="#FF4FB8"/>
+            </linearGradient>
+            <filter id="softShadow" x="-30" y="-30" width="220" height="220" color-interpolation-filters="sRGB">
+              <feDropShadow dx="0" dy="18" stdDeviation="12" flood-color="#000000" flood-opacity="0.35"/>
+            </filter>
+          </defs>
+          <path d="M79.9 8.5L145 45.7V114.3L79.9 151.5L15 114.3V45.7L79.9 8.5Z" fill="url(#paintA)" filter="url(#softShadow)"/>
+          <path d="M48 82L70 104L114 56" stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </section>
+
+    <nav class="sticky-bar">
+      <a href="#gradients">Gradients</a>
+      <a href="#blend">Blend</a>
+      <a href="#masks">Masks</a>
+      <a href="#filters">Filters</a>
+      <a href="#type">Type</a>
+      <a href="#forms">Forms</a>
+    </nav>
+
+    <section class="test-grid">
+      <article class="panel span-4" id="gradients">
+        <h3>Conic gradient + shadow</h3>
+        <p>Verifica si el conversor conserva gradientes cónicos, bordes redondeados y sombras internas/externas.</p>
+        <div class="gradient-box"></div>
+      </article>
+
+      <article class="panel span-4" id="blend">
+        <h3>Mix blend mode</h3>
+        <p>Los círculos deberían mezclarse de forma luminosa sobre fondo oscuro.</p>
+        <div class="blend-stack"><i></i><i></i><i></i></div>
+      </article>
+
+      <article class="panel span-4" id="masks">
+        <h3>Clip path polygon</h3>
+        <p>Forma irregular creada con clip-path. Útil para detectar rasterización o pérdida de máscara.</p>
+        <div class="clip-shape"></div>
+      </article>
+
+      <article class="panel span-5">
+        <h3>CSS mask image</h3>
+        <p>Debe verse como una imagen abstracta recortada por una máscara radial suave.</p>
+        <div class="masked-image"></div>
+      </article>
+
+      <article class="panel span-7" id="filters">
+        <h3>Filter rendering</h3>
+        <p>Blur, grayscale, contrast, hue-rotate y saturación aplicados a bloques independientes.</p>
+        <div class="filter-demo"><div></div><div></div><div></div></div>
+      </article>
+
+      <article class="panel span-6" id="type">
+        <h3>Typography stress</h3>
+        <p>Prueba de tracking negativo, stroke de texto, texto vertical y balance visual.</p>
+        <div class="text-specimen">
+          <div class="big">Very tight headline rendering</div>
+          <div class="big stroke">Outlined text layer</div>
+          <div class="vertical">Vertical writing mode</div>
+        </div>
+      </article>
+
+      <article class="panel span-6">
+        <h3>Nested CSS grid</h3>
+        <p>Grid interno con elementos que ocupan varias columnas y filas.</p>
+        <div class="nested-grid">
+          <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+        </div>
+        <div class="shadow-layers"></div>
+      </article>
+
+      <article class="panel span-4">
+        <h3>Absolute positioning</h3>
+        <p>Capas absolutas con rotación, opacidad y sombras sintéticas.</p>
+        <div class="absolute-chaos"><b></b><i></i><em></em></div>
+      </article>
+
+      <article class="panel span-8">
+        <h3>Table rendering</h3>
+        <p>Sirve para validar bordes, celdas, espaciado y fondos separados.</p>
+        <table class="table-test">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th>Expected</th>
+              <th>Common issue</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>backdrop-filter</td>
+              <td>Blurred glass</td>
+              <td>Ignored or flattened</td>
+            </tr>
+            <tr>
+              <td>mix-blend-mode</td>
+              <td>Screen blending</td>
+              <td>Rendered as normal opacity</td>
+            </tr>
+            <tr>
+              <td>text stroke</td>
+              <td>Outlined glyphs</td>
+              <td>Filled text fallback</td>
+            </tr>
+          </tbody>
+        </table>
+      </article>
+
+      <article class="panel span-12">
+        <h3>Pseudo-elements</h3>
+        <p>El bloque inferior prueba si ::before y ::after entran en el render final.</p>
+        <div class="pseudo-test">This real text should remain readable while generated pseudo-content appears in the corners.</div>
+      </article>
+    </section>
+
+    <section class="print-area">
+      <h2>Print-like editorial area</h2>
+      <p>
+        Esta zona usa fondo claro, texto oscuro, columnas CSS, reglas verticales y una marca de agua gigante con opacidad baja. Es útil para detectar cambios de color, contraste y columnas que se rompen en la exportación.
+      </p>
+      <div class="columns">
+        <strong>Column layout.</strong> Web to SVG converters often struggle with multi-column text, clipping and overflow. This paragraph intentionally contains enough text to create a newspaper-like composition. The visual goal is not only legibility, but also preservation of rhythm, column gap, column rule and paragraph wrapping. <strong>Opacity watermark.</strong> The large background type should remain subtle and should not overpower foreground text. <strong>Color consistency.</strong> The warm paper background should stay flat, without unexpected transparency artifacts.
+      </div>
+    </section>
+
+    <section class="panel span-12" id="forms" style="margin-top: 28px;">
+      <h3>Form controls</h3>
+      <p>Algunos conversores ignoran inputs/selects/buttons o los sustituyen por fallbacks visuales inconsistentes.</p>
+      <form class="form-test">
+        <input type="text" placeholder="Text input" value="Debug value" />
+        <input type="email" placeholder="Email input" />
+        <select>
+          <option>SVG export</option>
+          <option>PNG fallback</option>
+          <option>Vector layers</option>
+        </select>
+        <button type="button">Render test</button>
+      </form>
+    </section>
+
+    <footer class="debug-footer">
+      <span>HTML/CSS stress test</span>
+      <span>Viewport responsive · SVG conversion debug</span>
+    </footer>
+  </main>
+</body>
+</html>
