@@ -6,7 +6,7 @@ Primera version local para convertir HTML renderizado a SVG pegable en Figma.
 
 Abre `index.html` en el navegador o sirve la carpeta en localhost. Pega HTML, importa un archivo, carga una carpeta local o usa `HTML + assets`, presiona `Convertir` y luego `Copiar para Figma`.
 
-Esta version es 100% estatica y esta pensada para GitHub Pages. La version con `Importar URL` vive en `desktop-electron/`, porque necesita Electron + Playwright para abrir webs online con un navegador real.
+Esta version es 100% estatica y esta pensada para GitHub Pages.
 
 ## Alcance actual
 
@@ -28,7 +28,6 @@ Esta version es 100% estatica y esta pensada para GitHub Pages. La version con `
 
 ## Siguiente fase
 
-- Evolucionar la version Electron ubicada en `desktop-electron/`.
 - Crear un modelo intermedio de layout.
 - Traducir flex/grid a estructuras equivalentes de Figma.
 - Investigar el formato nativo del portapapeles de Figma para pegar frames con Auto Layout real.

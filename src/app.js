@@ -1450,8 +1450,10 @@
       return file.type;
     }
     const clean = normalizeAssetPath(path).toLowerCase().replace(/\.descarga$/, "");
-    if (clean.endsWith(".js") || clean.endsWith(".mjs")) return "text/javascript";
-    if (clean.endsWith(".css")) return "text/css";
+    const name = basename(clean);
+    if (name === "js" || name.endsWith(".js")) return "text/javascript";
+    if (name === "css" || name === "css2" || name.endsWith(".css")) return "text/css";
+    if (clean.endsWith(".mjs")) return "text/javascript";
     if (clean.endsWith(".svg")) return "image/svg+xml";
     if (clean.endsWith(".jpg") || clean.endsWith(".jpeg")) return "image/jpeg";
     if (clean.endsWith(".png")) return "image/png";
@@ -1468,7 +1470,6 @@
     const url = String(value || "").trim();
     return Boolean(url) &&
       !url.startsWith("#") &&
-      !/^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(url) &&
       !/^(?:data|blob|mailto|tel|javascript):/i.test(url);
   }
 

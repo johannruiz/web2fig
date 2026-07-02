@@ -116,8 +116,10 @@ function decodeSafe(value) {
 function assetMimeType(file, path) {
   if (file.type) return file.type;
   const clean = normalizePath(path).toLowerCase().replace(/\.descarga$/, "");
-  if (clean.endsWith(".js") || clean.endsWith(".mjs")) return "text/javascript";
-  if (clean.endsWith(".css")) return "text/css";
+  const name = basename(clean);
+  if (name === "js" || name.endsWith(".js")) return "text/javascript";
+  if (name === "css" || name === "css2" || name.endsWith(".css")) return "text/css";
+  if (clean.endsWith(".mjs")) return "text/javascript";
   if (clean.endsWith(".html") || clean.endsWith(".htm")) return "text/html";
   if (clean.endsWith(".json")) return "application/json";
   if (clean.endsWith(".svg")) return "image/svg+xml";
