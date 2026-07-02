@@ -10,6 +10,7 @@
   const importButton = document.querySelector("#importButton");
   const importFolderButton = document.querySelector("#importFolderButton");
   const importHtmlAssetsButton = document.querySelector("#importHtmlAssetsButton");
+  const importUrlButton = document.querySelector("#importUrlButton");
   const convertButton = document.querySelector("#convertButton");
   const copyButton = document.querySelector("#copyButton");
   const sampleButton = document.querySelector("#sampleButton");
@@ -45,6 +46,12 @@
   const chooseAssetFolderButton = document.querySelector("#chooseAssetFolderButton");
   const assetHtmlLabel = document.querySelector("#assetHtmlLabel");
   const assetFolderLabel = document.querySelector("#assetFolderLabel");
+  const urlModal = document.querySelector("#urlModal");
+  const urlInput = document.querySelector("#urlInput");
+  const urlModalClose = document.querySelector("#urlModalClose");
+  const urlCancelButton = document.querySelector("#urlCancelButton");
+  const urlAcceptButton = document.querySelector("#urlAcceptButton");
+  const urlModalError = document.querySelector("#urlModalError");
 
   let currentSvg = "";
   let renderId = 0;
@@ -54,9 +61,12 @@
   let previewHeight = 900;
   let exportMode = "editable";
   let assetLibrary = emptyAssetLibrary();
+  let remoteBaseUrl = "";
   let pendingAssetHtmlFile = null;
   let pendingAssetFiles = [];
   let progressValue = 0;
+
+  const URL_CAPTURE_ENDPOINT = "http://127.0.0.1:8799/capture";
 
   const sampleHtml = `<!doctype html>
 <html>
@@ -220,6 +230,7 @@
   });
 
   htmlInput.addEventListener("input", () => {
+    remoteBaseUrl = "";
     previewStale = true;
     updateMeta();
     updateEmptyState();
@@ -265,6 +276,38 @@
 
   htmlAssetsImport?.addEventListener("click", () => {
     importPendingHtmlAssets();
+  });
+
+  importUrlButton?.addEventListener("click", () => {
+    openUrlModal();
+  });
+
+  urlModalClose?.addEventListener("click", () => {
+    closeUrlModal();
+  });
+
+  urlCancelButton?.addEventListener("click", () => {
+    closeUrlModal();
+  });
+
+  urlModal?.addEventListener("click", (event) => {
+    if (event.target === urlModal) {
+      closeUrlModal();
+    }
+  });
+
+  urlInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      importFromUrl();
+    }
+    if (event.key === "Escape") {
+      closeUrlModal();
+    }
+  });
+
+  urlAcceptButton?.addEventListener("click", () => {
+    importFromUrl();
   });
 
   viewportPresetButtons.forEach((button) => {
@@ -328,6 +371,7 @@
 
     try {
       clearAssetLibrary();
+      remoteBaseUrl = "";
       htmlInput.value = await file.text();
       updateEmptyState();
       previewStale = true;
@@ -363,6 +407,7 @@
       debugLog(`Importar carpeta: ${files.length} archivos recibidos.`);
       setOperationProgress(4, "Leyendo carpeta");
       clearAssetLibrary();
+      remoteBaseUrl = "";
       assetLibrary = await createAssetLibrary(files);
       debugLog(`HTML elegido: ${assetLibrary.htmlPath || assetLibrary.htmlFile.name}`);
       debugLog(`Base local: ${assetLibrary.baseDir || "(raiz)"}`);
@@ -413,6 +458,7 @@
 
   sampleButton.addEventListener("click", async () => {
     clearAssetLibrary();
+    remoteBaseUrl = "";
     htmlInput.value = sampleHtml;
     updateEmptyState();
     previewStale = true;
@@ -523,6 +569,7 @@
       debugLog(`HTML + assets: ${files.length} archivos de assets recibidos.`);
       setOperationProgress(4, "Leyendo HTML + assets");
       clearAssetLibrary();
+      remoteBaseUrl = "";
       assetLibrary = createAssetLibraryFromHtmlAndAssets(htmlFile, files);
       debugLog(`HTML externo: ${assetLibrary.htmlFile.name}`);
       debugLog(`Base local: ${assetLibrary.baseDir || "(raiz de assets)"}`);
@@ -555,6 +602,186 @@
       assetFolderInput.value = "";
       updateHtmlAssetsModalState();
     }
+  }
+
+  function openUrlModal() {
+    if (!urlModal) {
+      return;
+    }
+    setUrlModalError("");
+    urlModal.hidden = false;
+    window.setTimeout(() => {
+      urlInput?.focus();
+      urlInput?.select();
+    }, 20);
+  }
+
+  function closeUrlModal() {
+    if (urlModal) {
+      urlModal.hidden = true;
+    }
+    setUrlModalError("");
+  }
+
+  async function importFromUrl() {
+    const rawUrl = urlInput?.value || "";
+    let pageUrl = "";
+    try {
+      pageUrl = normalizePageUrl(rawUrl);
+    } catch (error) {
+      setUrlModalError(error.message);
+      return;
+    }
+
+    try {
+      setUrlModalLoading(true);
+      setUrlModalError("");
+      setOperationProgress(6, "Importando URL");
+      statusText.textContent = `Capturando ${pageUrl} con navegador local...`;
+      debugLog(`Importar URL: capturando ${pageUrl}`);
+      const captured = await captureUrlWithLocalBrowser(pageUrl).catch(async (error) => {
+        debugLog(`Importar URL: capturador local no disponible (${error.message}). Probando descarga HTML.`);
+        const html = await fetchHtmlFromUrl(pageUrl);
+        return { html, finalUrl: pageUrl, title: "" };
+      });
+
+      clearAssetLibrary();
+      remoteBaseUrl = captured.finalUrl || pageUrl;
+      htmlInput.value = captured.html;
+      updateEmptyState();
+      previewStale = true;
+      updateMeta(captured.title || new URL(remoteBaseUrl).hostname);
+      resetCurrentOutput();
+      closeUrlModal();
+      statusText.textContent = "URL capturada. Renderizando preview...";
+      renderPreview({ quick: true, patient: true, label: "Renderizando URL" })
+        .then(() => {
+          finishOperationProgress();
+          statusText.textContent = "URL lista. Convierte para preparar el portapapeles.";
+        })
+        .catch((error) => {
+          if (error.message.includes("preview cambio")) {
+            return;
+          }
+          finishOperationProgress();
+          statusText.textContent = `No se pudo preparar el preview: ${error.message}`;
+        });
+    } catch (error) {
+      finishOperationProgress();
+      setUrlModalError(error.message);
+      statusText.textContent = `No se pudo importar la URL: ${error.message}`;
+    } finally {
+      setUrlModalLoading(false);
+    }
+  }
+
+  function setUrlModalLoading(isLoading) {
+    if (urlAcceptButton) {
+      urlAcceptButton.disabled = isLoading;
+      urlAcceptButton.textContent = isLoading ? "Importando..." : "Importar URL";
+    }
+    if (urlInput) {
+      urlInput.disabled = isLoading;
+    }
+  }
+
+  function setUrlModalError(message) {
+    if (!urlModalError) {
+      return;
+    }
+    urlModalError.textContent = message;
+    urlModalError.hidden = !message;
+  }
+
+  function normalizePageUrl(value) {
+    const trimmed = String(value || "").trim();
+    if (!trimmed) {
+      throw new Error("Pega una URL para importar.");
+    }
+    const candidate = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    let parsed;
+    try {
+      parsed = new URL(candidate);
+    } catch (error) {
+      throw new Error("La URL no parece valida.");
+    }
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      throw new Error("Solo se pueden importar URLs http o https.");
+    }
+    return parsed.href;
+  }
+
+  async function fetchHtmlFromUrl(pageUrl) {
+    const directError = await fetchHtmlDirect(pageUrl)
+      .then((html) => ({ html, error: null }))
+      .catch((error) => ({ html: "", error }));
+    if (directError.html) {
+      return directError.html;
+    }
+
+    debugLog(`Importar URL: fetch directo fallo (${directError.error?.message || "sin detalle"}). Probando proxy CORS.`);
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(pageUrl)}`;
+    return fetchHtmlDirect(proxyUrl, pageUrl);
+  }
+
+  async function captureUrlWithLocalBrowser(pageUrl) {
+    if (window.web2figDesktop?.captureUrl) {
+      const payload = await window.web2figDesktop.captureUrl({
+        url: pageUrl,
+        width: viewport.width,
+        height: previewHeight,
+      });
+      if (!payload?.html) {
+        throw new Error(payload?.error || "Electron no devolvio HTML renderizado.");
+      }
+      debugLog(`Importar URL: captura Electron lista. Largo=${payload.html.length.toLocaleString()} chars.`);
+      return payload;
+    }
+
+    const response = await fetch(URL_CAPTURE_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        url: pageUrl,
+        width: viewport.width,
+        height: previewHeight,
+      }),
+    });
+
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      throw new Error("El capturador local no devolvio JSON valido.");
+    }
+
+    if (!response.ok || !payload?.html) {
+      throw new Error(payload?.error || "El capturador local no pudo devolver HTML renderizado.");
+    }
+
+    debugLog(`Importar URL: captura local lista. Largo=${payload.html.length.toLocaleString()} chars.`);
+    return payload;
+  }
+
+  async function fetchHtmlDirect(url, originalUrl = url) {
+    const response = await fetch(url, {
+      credentials: "omit",
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      throw new Error(`La web respondio ${response.status}.`);
+    }
+    const contentType = response.headers.get("content-type") || "";
+    const text = await response.text();
+    if (!/<html[\s>]/i.test(text) && !/<!doctype\s+html/i.test(text)) {
+      if (!contentType.includes("text/html")) {
+        throw new Error("La URL no devolvio un documento HTML.");
+      }
+    }
+    debugLog(`Importar URL: HTML recibido desde ${originalUrl}. Largo=${text.length.toLocaleString()} chars.`);
+    return text;
   }
 
   async function copyCurrentSvg({ automatic }) {
@@ -778,6 +1005,10 @@
 
   async function prepareHtmlForPreview(html) {
     if (!assetLibrary.files.size) {
+      if (remoteBaseUrl) {
+        debugLog(`Preparar HTML: URL base remota=${remoteBaseUrl}`);
+        return addRemoteBaseHref(html, remoteBaseUrl);
+      }
       debugLog("Preparar HTML: sin carpeta local, se usa HTML directo.");
       return html;
     }
@@ -810,6 +1041,22 @@
     debugLog("Preparar HTML: reescribiendo estilos inline.");
     rewriteInlineStyles(doc, htmlBaseDir);
     debugLog("Preparar HTML: listo.");
+    return `<!doctype html>\n${doc.documentElement.outerHTML}`;
+  }
+
+  function addRemoteBaseHref(html, href) {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    let head = doc.head;
+    if (!head) {
+      head = doc.createElement("head");
+      doc.documentElement.insertBefore(head, doc.body || null);
+    }
+    let base = head.querySelector("base[href]");
+    if (!base) {
+      base = doc.createElement("base");
+      head.insertBefore(base, head.firstChild);
+    }
+    base.setAttribute("href", href);
     return `<!doctype html>\n${doc.documentElement.outerHTML}`;
   }
 

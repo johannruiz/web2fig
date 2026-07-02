@@ -1,0 +1,16 @@
+{
+  "name": "web2fig-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Web2Fig desktop con importacion URL mediante Electron y Playwright.",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "install:browsers": "playwright install chromium"
+  },
+  "dependencies": {
+    "electron": "^31.7.7",
+    "playwright": "^1.45.3"
+  },
+  "devDependencies": {}
+}

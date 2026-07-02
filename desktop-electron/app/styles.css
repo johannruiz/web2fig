@@ -682,7 +682,7 @@ iframe {
 }
 
 .modal-card {
-  width: min(520px, 100%);
+  width: min(480px, 100%);
   border: 1px solid var(--line);
   border-radius: 14px;
   background: #15191f;
@@ -735,6 +735,38 @@ iframe {
   color: #aeb6c2;
   font-size: 13px;
   line-height: 1.55;
+}
+
+.modal-field {
+  display: grid;
+  gap: 8px;
+  color: #d9dde5;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.modal-field input {
+  width: 100%;
+  height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #101317;
+  color: white;
+  padding: 0 12px;
+  outline: 0;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.modal-field input::placeholder {
+  color: #69717d;
+}
+
+.modal-error {
+  margin: 10px 0 0;
+  color: #ff9b9b;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .asset-picker-stack {
@@ -817,8 +849,8 @@ iframe {
 }
 
 .modal-actions button:disabled {
-  cursor: not-allowed;
-  opacity: 0.48;
+  cursor: wait;
+  opacity: 0.6;
 }
 
 button:focus-visible,
